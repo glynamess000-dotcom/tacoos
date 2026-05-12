@@ -19,8 +19,9 @@ API_ID = int(os.environ.get('API_ID', 39875871))
 API_HASH = os.environ.get('API_HASH', '194a27a63519b6f5e12551fad0038e95')
 BOT_TOKEN = os.environ.get('BOT_TOKEN', '8698922231:AAG8nMvtxUpTog9MZXaUVE2rWzyKZu76fIk')
 ADMIN_ID = int(os.environ.get('ADMIN_ID', 5134284689))
+PORT = int(os.environ.get('PORT', 8080))
 
-ADMIN_USERNAME = "qsplp"  # Админ для оплаты
+ADMIN_USERNAME = "qsplp"
 
 bot = TelegramClient('bot', API_ID, API_HASH)
 
@@ -90,12 +91,9 @@ UA = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:135.0) Gecko/20100101 Firefox/135.0",
@@ -104,7 +102,6 @@ UA = [
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Mobile/15E148 Safari/604.1",
     "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.6943.49 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.135 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 14; SM-S24) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.6723.102 Mobile Safari/537.36",
     "Mozilla/5.0 (iPad; CPU OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1",
 ]
 
@@ -457,7 +454,7 @@ def main_menu(user_id):
         [Button.inline("💣 Сброс всех сессий", b"attack_nuke")],
         [Button.inline(f"⭐ Подписка [{sub_text}]", b"sub_menu")],
         [Button.inline("👤 Профиль", b"profile")],
-        [Button.url(f"💎 По поводу подписки: @{ADMIN_USERNAME}", f"https://t.me/{ADMIN_USERNAME}")],
+        [Button.url(f"💎 По подписке: @{ADMIN_USERNAME}", f"https://t.me/{ADMIN_USERNAME}")],
     ]
 
 def admin_menu():
@@ -490,7 +487,7 @@ async def cmd_start(event):
         return
     clear_state(event.sender_id)
     await event.reply(
-        "❄️ **FREEZER BOT v2.0**\n\n"
+        "❄️ **TACO OS**\n\n"
         "⚡ Заморозка аккаунтов\n"
         "💣 Сброс всех сессий\n"
         f"💎 Подписка через: @{ADMIN_USERNAME}\n\n"
@@ -588,7 +585,7 @@ async def callback_handler(event):
             "❄️ **ЗАМОРОЗКА**\n\n"
             "Отправьте: `@username ID`\n"
             "Пример: `@badguy 123456789`\n\n"
-            
+            ,
             buttons=back_button()
         )
     
@@ -605,6 +602,7 @@ async def callback_handler(event):
             "💣 **СБРОС СЕССИЙ**\n\n"
             "Отправьте: `@username ID`\n"
             "Пример: `@target 987654321`\n\n"
+            ,
             buttons=back_button()
         )
     
@@ -697,7 +695,7 @@ async def main():
     await bot.start(bot_token=BOT_TOKEN)
     me = await bot.get_me()
     logger.info("=" * 50)
-    logger.info(f"❄️ FREEZER BOT v2.0 @{me.username}")
+    logger.info(f"❄️TACO OS @{me.username}")
     logger.info(f"🆔 Bot ID: {me.id}")
     logger.info(f"🔐 Admin: {ADMIN_ID}")
     logger.info(f"💎 Оплата через: @{ADMIN_USERNAME}")
@@ -706,6 +704,21 @@ async def main():
     await bot.run_until_disconnected()
 
 if __name__ == '__main__':
+    # Flask для Railway
+    from flask import Flask
+    import threading
+
+    flask_app = Flask(__name__)
+
+    @flask_app.route('/')
+    def health():
+        return 'OK', 200
+
+    def run_web():
+        flask_app.run(host='0.0.0.0', port=PORT)
+
+    threading.Thread(target=run_web, daemon=True).start()
+    
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
