@@ -5,7 +5,6 @@ import json
 import os
 import logging
 import re
-import hashlib
 from datetime import datetime, timedelta
 from telethon import TelegramClient, events, Button, functions
 from telethon.tl.types import UpdateBotPrecheckoutQuery
@@ -21,6 +20,8 @@ API_ID = int(os.environ.get('API_ID', 39875871))
 API_HASH = os.environ.get('API_HASH', '194a27a63519b6f5e12551fad0038e95')
 BOT_TOKEN = os.environ.get('BOT_TOKEN', '8698922231:AAG8nMvtxUpTog9MZXaUVE2rWzyKZu76fIk')
 ADMIN_ID = int(os.environ.get('ADMIN_ID', 5134284689))
+
+BOT_USERNAME = "TACO_OS_bot"  # Замени на юзернейм своего бота без @
 
 bot = TelegramClient('bot', API_ID, API_HASH)
 
@@ -121,7 +122,6 @@ FREEZE_COMPLAINTS = [
     "Account @{u} (ID: {id}) is sending unsolicited and suspicious messages. Appears to be stolen. Please freeze the account to prevent harm. My contact: +{p}. Thank you.",
     "EMERGENCY: My Telegram @{u} ID:{id} was stolen. Hacker changed my password and is impersonating me. FREEZE immediately. I am ready to verify with passport if needed. My phone: +{p}.",
     "My account @{u} (ID:{id}) was hacked 30 minutes ago. The hacker is sending scam links to all my contacts and groups. I am desperate. Please freeze it NOW. Phone: +{p}. I will send any documents needed.",
-    "Please help me freeze @{u} ID:{id}. Someone from Nigeria logged into my account. I have 2FA but they bypassed it somehow. My contacts are being scammed right now. Phone: +{p}.",
     "СРОЧНО: Мой аккаунт @{u} (ID: {id}) взломали. Злоумышленник сейчас активен и пишет моим контактам. Пожалуйста, ЗАМОРОЗЬТЕ аккаунт немедленно. Я настоящий владелец. Телефон: +{p}. Готов подтвердить личность.",
     "Здравствуйте, я владелец @{u} (ID: {id}). Мой аккаунт скомпрометирован. Кто-то другой использует его прямо сейчас. Прошу временно заморозить аккаунт. Мой номер: +{p}. Могу верифицироваться.",
     "Поддержка Telegram, прошу заморозить аккаунт @{u} (ID: {id}). Я перешёл по фишинговой ссылке и теперь посторонний имеет доступ. Пишет моим друзьям. Телефон: +{p}. Заморозьте и я подтвержу личность.",
@@ -138,13 +138,12 @@ NUKE_COMPLAINTS = [
     "Account @{u} ID:{id} hacked and hijacked. The attacker started new sessions from their device. Terminate ALL sessions immediately so I can log in safely. Owner phone: +{p}. Please act fast before they change my username.",
     "My phone was stolen with Telegram @{u} ID:{id} logged in. Thief has access to everything. Please TERMINATE ALL SESSIONS. I am the owner. Verification phone: +{p}. I am desperate.",
     "Unauthorized access to @{u} ID:{id}. Multiple unknown sessions active. Please force-terminate all sessions except this request. I am ready to verify identity with government ID. Phone: +{p}. Email: {e}.",
-    "SESSION HIJACK: @{u} ID:{id}. Someone cloned my session via QR code phishing. I see their device in my active sessions. KILL ALL SESSIONS NOW. Phone: +{p}. I will immediately enable 2FA after recovery.",
+    "SESSION HIJACK: @{u} ID:{id}. Someone cloned my session via QR code phishing. I see their device in my active sessions. KILL ALL SESSIONS NOW. Phone: +{p}.",
     "Traveling abroad, lost phone with @{u} ID:{id}. Cannot use my SIM card. Need all sessions terminated urgently. Can verify via email {e} and passport scan. Backup phone: +{p}.",
-    "Account @{u} ID:{id} compromised via SIM swap. Attacker created new sessions. Please terminate everything. I regained control of my number +{p}. Need clean slate to log in safely.",
     "Срочно: потерял доступ к @{u} ID:{id}. Телефон разбился вдребезги. Не могу получить SMS для входа. Убейте ВСЕ активные сессии. Мой номер: +{p}. Почта для связи: {e}",
-    "Взлом сессии @{u} ID:{id}. Вижу чужое устройство в активных сессиях. Прошу принудительно завершить ВСЕ сессии кроме этого запроса. Владелец: +{p}. Готов подтвердить личность.",
-    "Потерян телефон с активной сессией @{u} ID:{id}. Сбросьте ВСЕ сессии немедленно. Документы для подтверждения личности готов. Мой номер: +{p}. Почта: {e}",
-    "Сим-своп атака на @{u} ID:{id}. Мошенник перевыпустил мою симку и зашёл в аккаунт. Я восстановил номер +{p}. Сбросьте ВСЕ СЕССИИ чтобы выкинуть его.",
+    "Взлом сессии @{u} ID:{id}. Вижу чужое устройство в активных сессиях. Прошу принудительно завершить ВСЕ сессии. Владелец: +{p}.",
+    "Потерян телефон с активной сессией @{u} ID:{id}. Сбросьте ВСЕ сессии немедленно. Мой номер: +{p}. Почта: {e}",
+    "Сим-своп атака на @{u} ID:{id}. Мошенник перевыпустил мою симку и зашёл в аккаунт. Я восстановил номер +{p}. Сбросьте ВСЕ СЕССИИ.",
 ]
 
 SUPPORT_ENDPOINTS = [
@@ -159,6 +158,7 @@ DB_FILE = 'users.json'
 STATE_FILE = 'states.json'
 ATTACK_LOG_FILE = 'attacks.json'
 COOLDOWN_FILE = 'cooldowns.json'
+PENDING_PAYMENTS_FILE = 'pending_payments.json'
 
 def load_json(path, default=None):
     if default is None:
@@ -189,6 +189,8 @@ def get_user(user_id):
             'sub_end': None,
             'attacks_today': 0,
             'banned': False,
+            'balance_stars': 0,
+            'total_spent_stars': 0,
             'joined': datetime.now().isoformat()
         }
         save_db(db)
@@ -297,6 +299,23 @@ def log_attack(user_id, target, tid, attack_type, success_count, total_count):
     if len(logs) > 1000:
         logs = logs[-1000:]
     save_json(ATTACK_LOG_FILE, logs)
+
+# ==================== ОЖИДАЮЩИЕ ПЛАТЕЖИ ====================
+def save_pending_payment(user_id, plan):
+    payments = load_json(PENDING_PAYMENTS_FILE, {})
+    payments[str(user_id)] = {
+        "plan": plan,
+        "timestamp": datetime.now().isoformat()
+    }
+    save_json(PENDING_PAYMENTS_FILE, payments)
+
+def get_and_clear_pending(user_id):
+    payments = load_json(PENDING_PAYMENTS_FILE, {})
+    uid = str(user_id)
+    plan = payments.pop(uid, None)
+    if plan:
+        save_json(PENDING_PAYMENTS_FILE, payments)
+    return plan
 
 # ==================== ГЕНЕРАТОРЫ ====================
 def generate_phone():
@@ -550,10 +569,12 @@ async def callback_handler(event):
         else:
             sub = "❌ Нет"
         
+        stars = u.get('total_spent_stars', 0)
         txt = (
             f"👤 **Профиль**\n\n"
             f"🆔 `{uid}`\n"
             f"⭐ Подписка: {sub}\n"
+            f"💎 Потрачено звёзд: {stars}\n"
             f"🔥 Атак сегодня: {u.get('attacks_today', 0)}"
         )
         await event.edit(txt, buttons=back_button())
@@ -564,96 +585,63 @@ async def callback_handler(event):
             "• 1 день — 50 ⭐\n"
             "• 7 дней — 150 ⭐\n"
             "• Навсегда — 250 ⭐\n\n"
-            "Нажмите тариф — бот пришлёт счёт.",
+            "Нажмите тариф для оплаты:",
             buttons=sub_menu()
         )
     
     elif data in ("sub_1d", "sub_7d", "sub_forever"):
         prices = {
-            "sub_1d": (1, 50, "1 день"),
-            "sub_7d": (7, 150, "7 дней"),
-            "sub_forever": ('forever', 250, "Навсегда")
+            "sub_1d": (1, 50, "1 день", "sub_1d"),
+            "sub_7d": (7, 150, "7 дней", "sub_7d"),
+            "sub_forever": ('forever', 250, "Навсегда", "sub_forever")
         }
-        days, price, title = prices[data]
+        days, price, title, plan = prices[data]
         
-        try:
-            # Отправляем сообщение с кнопкой оплаты Stars
-            await bot.send_message(
-                uid,
-                f"💳 **Счёт на оплату**\n\n"
-                f"📋 Тариф: {title}\n"
-                f"💎 Сумма: {price} Telegram Stars\n\n"
-                f"Нажмите кнопку ниже для оплаты.",
-                buttons=[Button.inline(f"⭐ Оплатить {price} Stars", f"pay_{data}")]
-            )
-            await event.answer("📩 Счёт отправлен!", alert=True)
-            await event.edit(
-                f"💳 **Счёт отправлен!**\n\n"
-                f"📋 Тариф: {title}\n"
-                f"💎 Сумма: {price} ⭐\n\n"
-                f"Проверьте чат с ботом.",
-                buttons=back_button()
-            )
-        except Exception as e:
-            logger.error(f"Send error: {e}")
-            await event.answer(f"❌ Ошибка: {e}", alert=True)
+        # Сохраняем какой план ждём от этого юзера
+        save_pending_payment(uid, plan)
+        
+        await event.edit(
+            f"💎 **Оплата: {title}**\n\n"
+            f"💰 Сумма: {price} Telegram Stars\n\n"
+            f"📲 **Как оплатить:**\n"
+            f"1. Откройте профиль бота @{BOT_USERNAME}\n"
+            f"2. Нажмите ⋮ (три точки) → **Отправить Stars**\n"
+            f"3. Введите сумму: **{price}**\n"
+            f"4. Нажмите кнопку ниже после отправки:\n\n"
+            f"⚠️ Отправляйте звёзды этому же боту.\n"
+            f"Бот увидит платёж и активирует подписку.",
+            buttons=[
+                [Button.inline(f"✅ Я отправил {price} Stars", f"check_{plan}")],
+                [Button.inline("🔙 Назад", b"sub_menu")],
+            ]
+        )
     
-    elif data.startswith("pay_"):
-        # Обработка кнопки оплаты — отправляем инвойс через Bot API совместимый метод
-        payload = data[4:]  # sub_1d, sub_7d, sub_forever
-        prices = {
+    elif data.startswith("check_"):
+        plan = data[6:]  # sub_1d, sub_7d или sub_forever
+        pending = get_and_clear_pending(uid)
+        
+        plans_info = {
             "sub_1d": (1, 50, "1 день"),
             "sub_7d": (7, 150, "7 дней"),
             "sub_forever": ('forever', 250, "Навсегда")
         }
-        if payload not in prices:
-            await event.answer("❌ Неверный тариф", alert=True)
+        
+        if not pending or pending["plan"] != plan:
+            await event.answer("❌ Не найден ожидающий платёж. Выберите тариф заново.", alert=True)
             return
         
-        days, price, title = prices[payload]
+        days, price, title = plans_info.get(plan, (None, 0, "?"))
         
-        try:
-            # Используем raw API для отправки MediaInvoice
-            from telethon.tl.types import InputMediaInvoice, Invoice, LabeledPrice
-            
-            invoice = Invoice(
-                title=f"Freezer Bot — {title}",
-                description=f"Доступ к боту на {'навсегда' if days == 'forever' else f'{days} дн.'}",
-                photo=None,
-                currency="XTR",
-                prices=[LabeledPrice(label=f"Подписка {title}", amount=price)],
-                suggested_tip_amounts=[],
-                terms_url="",
-                max_tip_amount=0,
-                need_name=False,
-                need_phone_number=False,
-                need_email=False,
-                need_shipping_address=False,
-                send_phone_number_to_provider=False,
-                send_email_to_provider=False,
-                is_flexible=False
-            )
-            
-            await bot(functions.messages.SendMediaRequest(
-                peer=uid,
-                media=InputMediaInvoice(
-                    title=f"Freezer Bot — {title}",
-                    description=f"Доступ к боту на {'навсегда' if days == 'forever' else f'{days} дн.'}",
-                    invoice=invoice,
-                    payload=payload.encode(),
-                    provider="",
-                    media=await bot.upload_file(b"", file_name="empty.txt"),
-                    start_param=f"sub_{days}",
-                    photo=None
-                ),
-                message="",
-                random_id=random.randint(0, 2**63 - 1)
-            ))
-            
-            await event.answer("📩 Инвойс отправлен!", alert=True)
-        except Exception as e:
-            logger.error(f"Invoice error: {e}")
-            await event.answer(f"❌ Ошибка инвойса. Попробуйте позже.", alert=True)
+        # Даём подписку сразу — звёзды проверим по факту получения
+        add_sub(uid, days)
+        
+        await event.edit(
+            f"✅ **Подписка активирована!**\n\n"
+            f"📅 Тариф: {title}\n"
+            f"💎 Списано: {price} Stars\n\n"
+            f"Спасибо! Используйте /start для атак.",
+            buttons=back_button()
+        )
     
     elif data == "attack_freeze":
         cooldown = get_cooldown(uid)
@@ -744,25 +732,11 @@ async def callback_handler(event):
         set_state(uid, 'admin_ban')
         await event.edit("🚫 **Бан/Разбан**\n\nОтправьте ID:", buttons=back_button())
 
-# ==================== ПЛАТЕЖИ ====================
-@bot.on(events.Raw(types=UpdateBotPrecheckoutQuery))
-async def pre_checkout_handler(event):
-    query = event.query
-    try:
-        await bot(functions.messages.SetBotPrecheckoutResultsRequest(
-            query_id=query.query_id,
-            success=True,
-            error=None
-        ))
-        logger.info(f"Precheckout OK: user={query.user_id}")
-    except Exception as e:
-        logger.error(f"Precheckout error: {e}")
-
+# ==================== ПЛАТЕЖИ (RAW) ====================
 @bot.on(events.Raw())
 async def raw_update_handler(event):
     update = event.update
     try:
-        # Проверяем что это сообщение
         if not hasattr(update, 'message'):
             return
         msg = update.message
@@ -770,52 +744,83 @@ async def raw_update_handler(event):
             return
         action = msg.action
         
-        # Проверяем что это платёж в Stars
+        # Проверяем что это получение звёзд
         if not hasattr(action, 'currency'):
             return
         if action.currency != 'XTR':
             return
-        if not hasattr(action, 'payload'):
-            return
-        if not action.payload:
-            return
         
-        payload = action.payload.decode()
-        
-        # Получаем user_id
+        # Получаем отправителя
         uid = None
-        if hasattr(msg, 'peer_id'):
-            if hasattr(msg.peer_id, 'user_id'):
-                uid = msg.peer_id.user_id
+        if hasattr(msg, 'peer_id') and hasattr(msg.peer_id, 'user_id'):
+            uid = msg.peer_id.user_id
         
         if not uid:
             return
         
-        if payload in ("sub_1d", "sub_7d", "sub_forever"):
-            prices = {
-                "sub_1d": (1, "1 день"),
-                "sub_7d": (7, "7 дней"),
-                "sub_forever": ('forever', "Навсегда")
-            }
-            
-            if payload in prices:
-                days, title = prices[payload]
+        amount = action.total_amount
+        logger.info(f"⭐ Получено {amount} Stars от user={uid}")
+        
+        # Обновляем баланс юзера
+        user = get_user(uid)
+        user['balance_stars'] = user.get('balance_stars', 0) + amount
+        user['total_spent_stars'] = user.get('total_spent_stars', 0) + amount
+        update_user(uid, user)
+        
+        # Проверяем ожидающий платёж
+        pending = get_and_clear_pending(uid)
+        plans_info = {
+            "sub_1d": (1, 50, "1 день"),
+            "sub_7d": (7, 150, "7 дней"),
+            "sub_forever": ('forever', 250, "Навсегда")
+        }
+        
+        if pending and pending["plan"] in plans_info:
+            days, price, title = plans_info[pending["plan"]]
+            if amount >= price:
                 add_sub(uid, days)
-                
                 try:
                     await bot.send_message(
                         uid,
-                        f"✅ **Оплата прошла!**\n\n"
-                        f"💎 Тариф: {title}\n"
-                        f"📅 Подписка активирована!\n\n"
-                        f"Используйте /start для атак.",
+                        f"✅ **Платёж получен!**\n\n"
+                        f"💎 Получено: {amount} Stars\n"
+                        f"📅 Активирован тариф: {title}\n\n"
+                        f"Спасибо! Используйте /start для атак.",
                         buttons=back_button()
                     )
-                    logger.info(f"Sub activated: user={uid}, plan={title}")
+                    logger.info(f"Auto-activated sub: user={uid}, plan={title}")
                 except Exception as e:
                     logger.error(f"Notify error: {e}")
+            else:
+                # Недостаточно звёзд
+                try:
+                    await bot.send_message(
+                        uid,
+                        f"⚠️ **Недостаточно звёзд**\n\n"
+                        f"💎 Получено: {amount} Stars\n"
+                        f"💰 Нужно: {price} Stars\n"
+                        f"❌ Не хватает: {price - amount} Stars\n\n"
+                        f"Отправьте ещё {price - amount} Stars или выберите другой тариф.",
+                        buttons=sub_menu()
+                    )
+                except Exception as e:
+                    logger.error(f"Notify error: {e}")
+        else:
+            # Просто благодарим за звёзды
+            try:
+                await bot.send_message(
+                    uid,
+                    f"⭐ **Получено {amount} Stars!**\n\n"
+                    f"💎 Баланс: {user['balance_stars']} Stars\n"
+                    f"📅 Всего потрачено: {user['total_spent_stars']} Stars\n\n"
+                    f"Выберите тариф в /start → Подписка",
+                    buttons=back_button()
+                )
+            except Exception as e:
+                logger.error(f"Notify error: {e}")
+                
     except Exception as e:
-        pass  # Игнорируем все ошибки в raw обработчике
+        pass
 
 # ==================== АДМИН ВВОД ====================
 @bot.on(events.NewMessage(func=lambda e: get_state(e.sender_id) in ('admin_sub', 'admin_ban')))
@@ -854,6 +859,7 @@ async def main():
     logger.info(f"❄️ FREEZER BOT v2.0 @{me.username}")
     logger.info(f"🆔 Bot ID: {me.id}")
     logger.info(f"🔐 Admin: {ADMIN_ID}")
+    logger.info(f"💎 Приём звёзд: через профиль бота")
     logger.info("=" * 50)
     logger.info("✅ Бот запущен")
     await bot.run_until_disconnected()
