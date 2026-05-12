@@ -17,7 +17,7 @@ logger = logging.getLogger('freezer')
 # ==================== КОНФИГ ====================
 API_ID = int(os.environ.get('API_ID', 39875871))
 API_HASH = os.environ.get('API_HASH', '194a27a63519b6f5e12551fad0038e95')
-BOT_TOKEN = os.environ.get('BOT_TOKEN', '8698922231:AAFnAa4L4cAMutQBSelPv1pDLXTQvqic670')
+BOT_TOKEN = os.environ.get('BOT_TOKEN', '8698922231:AAG8nMvtxUpTog9MZXaUVE2rWzyKZu76fIk')
 ADMIN_ID = int(os.environ.get('ADMIN_ID', 5134284689))
 
 ADMIN_USERNAME = "qsplp"  # Админ для оплаты
