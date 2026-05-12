@@ -1,1 +1,1 @@
-worker: python snoser.py
+web: python bot.py
